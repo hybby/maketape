@@ -64,13 +64,19 @@ sub get_mp3s {
   opendir (DIR, $basedir) or die "Unable to open $basedir: $!";
 
   my @files = grep { !/^\.{1,2}$/ } readdir (DIR);  # forget about . and ..  
-  @files = map { $basedir . '/' . $_ } @files;    # make sure found files are fully qualified
-              # we'll tack on the full path with map()
+  @files = map { $basedir . '/' . $_ } @files;      # make sure found files are fully qualified
+                                                    # we'll tack on the full path with map()
   foreach my $file (@files) {
     if (-d $file) {
+
+      # recurse through any other directories we find
       get_mp3s($file,$mp3s_ref);
+
     } elsif ($file =~ /.*\.mp3$/) {
+
+      # only add to our list if it's an mp3
       push(@$mp3s_ref,$file); 
+
     } 
   }
 }

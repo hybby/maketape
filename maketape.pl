@@ -139,20 +139,20 @@ sub get_tags {
 
 # main ############################################################################################
 
-# let's get all mp3s
+# search for all mp3 files located in $mp3dir
 get_mp3s($mp3dir,\@mp3s);
 $total_mp3s = scalar(@mp3s);
 
-
-# print header.  can we make this code prettier? TODO
+# print header for our output.  can we make this code prettier? TODO
 printf ("%-${track_no_width}s%-${artist_width}s%-${song_width}s%-${length_width}s\n","#","ARTIST","SONG","(m:ss)");
 
+# now let's keep finding tracks until we've run out of space or have tried too hard
 until ($tape_length < $end_buffer || $attempts > $attempts_limit) {
 
   # choose a random track
   my $choice = random_mp3(\@mp3s);
 
-  # get its tags and length
+  # get its id3 tags and length in seconds
   $info_of{$choice} = get_tags($choice);
   my $choice_length = get_length($choice,\%info_of);  
 
@@ -165,6 +165,7 @@ until ($tape_length < $end_buffer || $attempts > $attempts_limit) {
     next;
   }
 
+  # calculate useful times for track to be displayed and pull out artist / song info 
   my $choice_mins = int($choice_length / 60);
   my $choice_secs = sprintf("%02d",$choice_length % 60);
   my $artist = $info_of{$choice}{'artist'};

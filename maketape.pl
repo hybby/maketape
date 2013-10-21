@@ -10,19 +10,17 @@
 #                 - repeat ad nauseum      
 #                 - print out a pretty playlist
 
-# modules ####################################################
+# modules #########################################################################################
 
 use strict;
 use warnings;
 
-use Time::Piece;
-use Time::Seconds;
 use File::Find;
 use MP3::Info;
 use MP3::Tag;
 use Data::Dumper;
 
-# variables ##################################################
+# variables #######################################################################################
 
 # lists and hashes to keep mp3 info in 
 my @mp3s;
@@ -33,7 +31,6 @@ my %info_of;
 # various variables
 my $track_number   = 1;   # incremented after each selection 
 my $total_length   = 0;   # total length of finished tape
-
 my $attempts       = 0;   
 my $attempts_limit = 500; # give up fitting more songs on after
 
@@ -43,15 +40,16 @@ my $artist_width   = 50;
 my $song_width     = 50;
 my $length_width   = 6;
 
-# basedir to search for mp3s in.  make this an option TODO
+# basedir to search for mp3s in.  provide this as an option TODO
 my $mp3dir               = '/mnt/sharefs/music/iTunes/Music';
 
-# the below values are in seconds.  can overwrite with opts TODO
-my $tape_length          = '4200'; 
+# the below values are in seconds.  allow overwrite with opts TODO
 my $minimum_track_length = '90';    
 my $maximum_track_length = '420';   
+my $tape_length          = '4200';  
+my $end_buffer           = '60';    # don't look for more songs if we only have X seconds left
 
-# subroutines ################################################
+# subroutines #####################################################################################
 
 sub get_mp3s {
 
@@ -133,7 +131,7 @@ sub get_tags {
 
 }
 
-# main #######################################################
+# main ############################################################################################
 
 # let's get all mp3s
 get_mp3s($mp3dir,\@mp3s);
@@ -143,7 +141,7 @@ $total_mp3s = scalar(@mp3s);
 # print header.  can we make this code prettier? TODO
 printf ("%-${track_no_width}s%-${artist_width}s%-${song_width}s%-${length_width}s\n","#","ARTIST","SONG","(m:ss)");
 
-until ($tape_length < 30 || $attempts > $attempts_limit) {
+until ($tape_length < $end_buffer || $attempts > $attempts_limit) {
 
   # choose a random track
   my $choice = random_mp3(\@mp3s);

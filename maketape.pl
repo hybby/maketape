@@ -76,10 +76,15 @@ OPTIONS:  -b: end-buffer.  space you're happy to leave at the end of the tape.
           -s: number of sides for the tape
           -h: print usage information and exists
 
+          where it makes sense, you can provide times to these options in either 
+          seconds or minutes.  4200 would be parsed as seconds.  4200m would be 
+          parsed as minutes.  no plans for hours, days, weeks or years yet.
+
 EXAMPLES: 
           ./$script_name                  use defaults
           ./$script_name -l 120m          make tape length 120 minutes
           ./$script_name -l 4200          make tape length 4200 seconds
+          ./$script_name -m 10m -u 5m     max track length 10m, min track length 5m
 };
 
 # getopts ########################################################################################

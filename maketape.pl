@@ -19,6 +19,8 @@ use File::Find;
 use MP3::Info;
 use MP3::Tag;
 use Data::Dumper;
+use Getopt::Std;
+use File::Basename;
 
 # variables #######################################################################################
 
@@ -29,13 +31,10 @@ my %length_of;
 my %info_of;
 
 # various variables
-my $track_number   = 1;   # incremented after each selection 
-my $total_length   = 0;   # total length of finished tape
-my $attempts       = 0;   
-my $attempts_limit = 500; # give up fitting more songs on after
+my $script_name    = basename($0);
 
 # display preferences for formatting.  make these dynamic TODO
-my $track_no_width = 3;
+my $track_no_width = 5;
 my $artist_width   = 50;
 my $song_width     = 50;
 my $length_width   = 6;
@@ -44,10 +43,130 @@ my $length_width   = 6;
 my $mp3dir               = '/mnt/sharefs/music/iTunes/Music';
 
 # the below values are in seconds.  allow overwrite with opts TODO
+my $current_side         = '1'
+my $sides                = '1';
 my $minimum_track_length = '90';    
 my $maximum_track_length = '420';   
 my $tape_length          = '4200';  
 my $end_buffer           = '60';    # don't look for more songs if we only have X seconds left
+
+# command line options
+our $opt_b;     # end buffer ("buffer")
+our $opt_d;     # mp3 directory ("dir")
+our $opt_h;     # usage ("help")
+our $opt_l;     # mix-length to create ("length")
+our $opt_m;     # maximum track length ("max")
+our $opt_s;     # sides to to create.  ("sides")
+our $opt_u;     # minimum track length ("minim-u-m")
+
+# usage ###########################################################################################
+
+my $usage = qq{
+--------------------------------------------
+$script_name: a script for creating mixtapes
+--------------------------------------------
+
+OPTIONS:  -b: end-buffer.  space you're happy to leave at the end of the tape. 
+              the smaller that this is, the harder it is to get it spot on. 
+              we'll try our hardest though.
+          -d: directory that you want the script to look for mp3s in.
+          -l: length of tape to create.  defaults to 70 minutes. (4200 seconds)
+          -m: maximum track size to use.  (default value: 420 seconds)
+          -u: mimumum track size to use.  (default value: 90 seconds)
+          -s: number of sides for the tape
+          -h: print usage information and exists
+
+EXAMPLES: 
+          ./$script_name                  use defaults
+          ./$script_name -l 120m          make tape length 120 minutes
+          ./$script_name -l 4200          make tape length 4200 seconds
+};
+
+# getopts ########################################################################################
+
+getopts('b:d:hl:m:s:u:');
+
+# parse help
+if ($opt_h) {
+  print $usage;
+  exit 0;
+}
+
+# parse mp3 directory
+if ($opt_d) {
+  if (-d $opt_d) {
+    $mp3dir = $opt_d;
+  } else {
+    print "directory provided with -d option is not a valid target\n";
+    exit 1;
+  }
+}
+
+# parse tape length
+if ($opt_l) {
+  if ($opt_l =~ /^-?\d+$/) {
+    # we've been given an int; treat as seconds
+    $tape_length = $opt_l;
+    print "user-specified tape length: $tape_length seconds\n";
+  } elsif ($opt_l =~ /^[1-9][0-9]*[mM]$/) {
+    # we've been given a 'minutes' value; convert
+    $opt_l =~ s/[mM]//s;
+    $tape_length = min2sec($opt_l);
+    print "user-specified tape length: $tape_length seconds\n";
+  } else {
+    print "argument provided to option -l is not a valid length.\n";
+    print "please provide in seconds (-l 4200) or minutes (-l 70m)";
+    exit 1;
+  }
+}
+
+# parse maximum track length
+if ($opt_m) {
+  if ($opt_m =~ /^-?\d+$/) {
+    # we've been given an int; treat as seconds
+    $maximum_track_length = $opt_m;
+    print "user-specified maximum track length: $maximum_track_length seconds\n";
+  } elsif ($opt_m =~ /^[1-9][0-9]*[mM]$/) {
+    # we've been given a 'minutes' value; convert
+    $opt_m =~ s/[mM]//s;
+    $maximum_track_length = min2sec($opt_m);
+    print "user-specified maximum track length: $maximum_track_length seconds\n";
+  } else {
+    print "argument provided to option -m is not a valid length.\n";
+    print "please provide in seconds (-m 90) or minutes (-m 2m)\n";
+    exit 1;
+  }
+}
+
+# parse minimum track length
+if ($opt_u) {
+  if ($opt_u =~ /^-?\d+$/) {
+    # we've been given an int; treat as seconds
+    $minimum_track_length = $opt_u;
+    print "user-specified minimum track length: $minimum_track_length seconds\n";
+  } elsif ($opt_u =~ /^[1-9][0-9]*[mM]$/) {
+    # we've been given a 'minutes' value; convert
+    $opt_u =~ s/[mM]//s;
+    $minimum_track_length = min2sec($opt_u);
+    print "user-specified minimum track length: $minimum_track_length seconds\n";
+  } else {
+    print "argument provided to option -u is not a valid length.\n";
+    print "please provide in seconds (-u 90) or minutes (-u 2m)\n";
+    exit 1;
+  }
+}
+
+# parse sides 
+if ($opt_s) {
+  if ($opt_s =~ /^-?\d+$/) {
+    $sides = $opt_s;
+    print "user-specified number of sides: $sides\n;"
+  } else {
+    print "argument provided to option -s is not a valid integer\n";
+    exit 1;
+  }
+}
+
 
 # subroutines #####################################################################################
 
@@ -137,11 +256,29 @@ sub get_tags {
 
 }
 
+sub min2sec {
+
+  # description:  convert minutes to seconds
+  # $_[0]:        minutes as an integer
+  # returns:      seconds as an integer
+
+  my $mins = shift;
+  my $secs = $mins * 60;
+  return $secs;
+
+}
+
 # main ############################################################################################
 
 # search for all mp3 files located in $mp3dir
 get_mp3s($mp3dir,\@mp3s);
 $total_mp3s = scalar(@mp3s);
+
+# get these values back to defaults
+my $track_number   = 1;   # incremented after each selection 
+my $total_length   = 0;   # total length of finished tape
+my $attempts       = 0;   
+my $attempts_limit = 500; # give up fitting more songs on after
 
 # print header for our output.  can we make this code prettier? TODO
 printf ("%-${track_no_width}s%-${artist_width}s%-${song_width}s%-${length_width}s\n","#","ARTIST","SONG","(m:ss)");

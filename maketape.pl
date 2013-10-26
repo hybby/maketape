@@ -119,8 +119,8 @@ if ($opt_l) {
     $tape_length = min2sec($opt_l);
     print "user-specified tape length: $tape_length seconds\n";
   } else {
-    print "argument provided to option -l is not a valid length.\n";
-    print "please provide in seconds (-l 4200) or minutes (-l 70m)";
+    print "argument provided to option -l is not a valid length\n";
+    print "please provide in seconds (-l 4200) or minutes (-l 70m)\n";
     exit 1;
   }
 }
@@ -137,7 +137,7 @@ if ($opt_m) {
     $maximum_track_length = min2sec($opt_m);
     print "user-specified maximum track length: $maximum_track_length seconds\n";
   } else {
-    print "argument provided to option -m is not a valid length.\n";
+    print "argument provided to option -m is not a valid length\n";
     print "please provide in seconds (-m 90) or minutes (-m 2m)\n";
     exit 1;
   }
@@ -155,7 +155,7 @@ if ($opt_u) {
     $minimum_track_length = min2sec($opt_u);
     print "user-specified minimum track length: $minimum_track_length seconds\n";
   } else {
-    print "argument provided to option -u is not a valid length.\n";
+    print "argument provided to option -u is not a valid length\n";
     print "please provide in seconds (-u 90) or minutes (-u 2m)\n";
     exit 1;
   }

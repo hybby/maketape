@@ -32,22 +32,24 @@ my %info_of;
 
 # various variables
 my $script_name    = basename($0);
+my $tape_title     = "$ENV{USER}'s mixtape";      # boring default title
 
 # display preferences for formatting.  make these dynamic TODO
 my $track_no_width = 5;
 my $artist_width   = 50;
 my $song_width     = 50;
 my $length_width   = 6;
+my $total_width    = $track_no_width + $artist_width + $song_width + $length_width;
 
 # basedir to search for mp3s in.  provide this as an option TODO
 my $mp3dir               = '/mnt/sharefs/music/iTunes/Music';
 
 # the below values are in seconds.  allow overwrite with opts TODO
-my $current_side         = '1'
+my $current_side         = '1';
 my $sides                = '1';
 my $minimum_track_length = '90';    
 my $maximum_track_length = '420';   
-my $tape_length          = '4200';  
+my $side_length          = '4200';  
 my $end_buffer           = '60';    # don't look for more songs if we only have X seconds left
 
 # command line options
@@ -57,6 +59,7 @@ our $opt_h;     # usage ("help")
 our $opt_l;     # mix-length to create ("length")
 our $opt_m;     # maximum track length ("max")
 our $opt_s;     # sides to to create.  ("sides")
+our $opt_t;     # title of tape ("title")
 our $opt_u;     # minimum track length ("minim-u-m")
 
 # usage ###########################################################################################
@@ -70,10 +73,11 @@ OPTIONS:  -b: end-buffer.  space you're happy to leave at the end of the tape.
               the smaller that this is, the harder it is to get it spot on. 
               we'll try our hardest though.
           -d: directory that you want the script to look for mp3s in.
-          -l: length of tape to create.  defaults to 70 minutes. (4200 seconds)
-          -m: maximum track size to use.  (default value: 420 seconds)
-          -u: mimumum track size to use.  (default value: 90 seconds)
-          -s: number of sides for the tape
+          -l: length of side.              (default value: 4200 sec (70 min))
+          -m: maximum track size to use.   (default value: 420 seconds (7 min))
+          -u: mimumum track size to use.   (default value: 90 seconds (1 min 30 sec))
+          -s: number of sides for the tape (default value: 1)
+          -t: tape title
           -h: print usage information and exists
 
           where it makes sense, you can provide times to these options in either 
@@ -81,10 +85,11 @@ OPTIONS:  -b: end-buffer.  space you're happy to leave at the end of the tape.
           parsed as minutes.  no plans for hours, days, weeks or years yet.
 
 EXAMPLES: 
-          ./$script_name                  use defaults
-          ./$script_name -l 120m          make tape length 120 minutes
-          ./$script_name -l 4200          make tape length 4200 seconds
-          ./$script_name -m 10m -u 5m     max track length 10m, min track length 5m
+          ./$script_name                    use defaults
+          ./$script_name -l 120m            make tape length 120 minutes
+          ./$script_name -l 4200            make tape length 4200 seconds
+          ./$script_name -m 10m -u 5m       max track length 10m, min track length 5m
+          ./$script_name -t "drew's tape"   custom tape name
 };
 
 # getopts ########################################################################################
@@ -107,17 +112,17 @@ if ($opt_d) {
   }
 }
 
-# parse tape length
+# parse side length
 if ($opt_l) {
   if ($opt_l =~ /^-?\d+$/) {
     # we've been given an int; treat as seconds
-    $tape_length = $opt_l;
-    print "user-specified tape length: $tape_length seconds\n";
+    $side_length = $opt_l;
+    print "user-specified tape length: $side_length seconds\n";
   } elsif ($opt_l =~ /^[1-9][0-9]*[mM]$/) {
     # we've been given a 'minutes' value; convert
     $opt_l =~ s/[mM]//s;
-    $tape_length = min2sec($opt_l);
-    print "user-specified tape length: $tape_length seconds\n";
+    $side_length = min2sec($opt_l);
+    print "user-specified tape length: $side_length seconds\n";
   } else {
     print "argument provided to option -l is not a valid length\n";
     print "please provide in seconds (-l 4200) or minutes (-l 70m)\n";
@@ -165,13 +170,17 @@ if ($opt_u) {
 if ($opt_s) {
   if ($opt_s =~ /^-?\d+$/) {
     $sides = $opt_s;
-    print "user-specified number of sides: $sides\n;"
+    print "user-specified number of sides: $sides\n";
   } else {
     print "argument provided to option -s is not a valid integer\n";
     exit 1;
   }
 }
 
+# parse title
+if ($opt_t) {
+  $tape_title = $opt_t;
+}
 
 # subroutines #####################################################################################
 
@@ -208,15 +217,20 @@ sub get_mp3s {
 sub random_mp3 { 
 
   # description:  returns a random element from the provided array
+  #               we shuffle the array each time before selecting too.
   # $_[0]:        reference of list which contains mp3 filepaths
   
-  my $mp3s_ref   = shift; 
-  my $no_of_mp3s = @$mp3s_ref;
+  my $mp3s   = shift;           # a list (array) reference 
+  my $size_of_array = @$mp3s;
 
-  # choose a random element from the @mp3s list.
-  my $random_mp3 = ${ $mp3s_ref }[int(rand($no_of_mp3s + 1))];
-
-  return $random_mp3; 
+  # shuffle array.  this is a fisher-yates shuffle, apparently!
+  while ( --$size_of_array ) {
+    my $seed = int rand($size_of_array + 1);
+    @$mp3s[$size_of_array, $seed] = @$mp3s[$seed, $size_of_array];
+  }
+  
+   # pop a random mp3, meaning we can never choose it again.  good thing!
+   return pop(@$mp3s);
 
 } 
 
@@ -273,64 +287,106 @@ sub min2sec {
 
 }
 
+sub print_header {
+
+  # description:  print a header for each tape side
+  #               no arguments
+  # returns:      nothing
+
+  # print seperator.  think <hr /> but in hashes  - as long as our total width
+  print "-" x $total_width . "\n";
+
+  # let's build up the next line bit by bit.  it can vary depending on sides
+  print " ";    
+ 
+  if ($tape_title) {
+    print "$tape_title";
+  } 
+
+  if ($sides gt 1) {
+    print " (side $current_side)";
+  }
+
+  print "\n";
+
+  # print ending seperator.  same as above.
+  print "-" x $total_width . "\n";
+
+  # print our headings at fixed widths.
+  printf("%-${track_no_width}s%-${artist_width}s%-${song_width}s%-${length_width}s\n",
+  "#","ARTIST","SONG","(m:ss)");
+
+}
+
+sub generate_side {
+
+  # get these values back to defaults
+  my $length         = shift;
+  my $track_number   = 1;   # incremented after each selection 
+  my $total_length   = 0;   # total length of finished tape
+  my $attempts       = 0;   
+  my $attempts_limit = 500; # give up fitting more songs on after
+
+  # print header
+  print_header();
+
+  # now let's keep finding tracks until we've run out of space or have tried too hard
+  until ($length < $end_buffer || $attempts > $attempts_limit) {
+
+    # choose a random track
+    my $choice = random_mp3(\@mp3s);
+
+    # get its id3 tags and length in seconds
+    $info_of{$choice} = get_tags($choice);
+    my $choice_length = get_length($choice,\%info_of);  
+
+    if ( $choice_length > $length               ||  
+         $choice_length > $maximum_track_length ||   
+         $choice_length < $minimum_track_length ) {
+    
+      # skip this track
+      $attempts++;
+      next;
+    }
+
+    # calculate useful times for track to be displayed and pull out artist / song info 
+    my $choice_mins = int($choice_length / 60);
+    my $choice_secs = sprintf("%02d",$choice_length % 60);
+    my $artist = $info_of{$choice}{'artist'};
+    my $song  = $info_of{$choice}{'song'};
+
+    if (!$song || !$artist) {
+      # we don't want tracks with no id3 tags
+      next;
+    } 
+
+    # print song details to screen.  
+    printf("%-${track_no_width}s%-${artist_width}s%-${song_width}s%-${length_width}s\n",
+    "$track_number","$artist","$song","($choice_mins:$choice_secs)");
+
+    # let's update some stuff for the next iteration
+    $length = $length - $choice_length;
+    $total_length = $total_length + $choice_length;
+    $track_number++;
+  }
+
+  # let's calculate the grand total length of our generated side
+  my $total_mins = int($total_length / 60);
+  my $total_secs = sprintf("%02d",$total_length % 60);
+
+  print "TOTAL: $total_mins:$total_secs\n\n";
+
+}
+
 # main ############################################################################################
 
 # search for all mp3 files located in $mp3dir
 get_mp3s($mp3dir,\@mp3s);
 $total_mp3s = scalar(@mp3s);
 
-# get these values back to defaults
-my $track_number   = 1;   # incremented after each selection 
-my $total_length   = 0;   # total length of finished tape
-my $attempts       = 0;   
-my $attempts_limit = 500; # give up fitting more songs on after
-
-# print header for our output.  can we make this code prettier? TODO
-printf ("%-${track_no_width}s%-${artist_width}s%-${song_width}s%-${length_width}s\n","#","ARTIST","SONG","(m:ss)");
-
-# now let's keep finding tracks until we've run out of space or have tried too hard
-until ($tape_length < $end_buffer || $attempts > $attempts_limit) {
-
-  # choose a random track
-  my $choice = random_mp3(\@mp3s);
-
-  # get its id3 tags and length in seconds
-  $info_of{$choice} = get_tags($choice);
-  my $choice_length = get_length($choice,\%info_of);  
-
-  if ( $choice_length > $tape_length          ||  
-       $choice_length > $maximum_track_length ||   
-       $choice_length < $minimum_track_length ) {
-    
-    # skip this track
-    $attempts++;
-    next;
-  }
-
-  # calculate useful times for track to be displayed and pull out artist / song info 
-  my $choice_mins = int($choice_length / 60);
-  my $choice_secs = sprintf("%02d",$choice_length % 60);
-  my $artist = $info_of{$choice}{'artist'};
-  my $song  = $info_of{$choice}{'song'};
-
-  if (!$song || !$artist) {
-    # we don't want tracks with no id3 tags
-    next;
-  } 
-
-  # print song details to screen.  can we make this code prettier? TODO
-  printf ("%-${track_no_width}s%-${artist_width}s%-${song_width}s%-${length_width}s\n","$track_number","$artist","$song","($choice_mins:$choice_secs)");
-
-  # let's update some stuff for the next iteration
-  $tape_length = $tape_length - $choice_length;
-  $total_length = $total_length + $choice_length;
-  $track_number++;
+# generate a side, for as many sides as we have
+for ($current_side = 1; $current_side <= $sides; $current_side++) {
+  generate_side($side_length);
 }
-
-# let's calculate the grand total length of our generated tape
-my $total_mins = int($total_length / 60);
-my $total_secs = sprintf("%02d",$total_length % 60);
-
-print "TOTAL: $total_mins:$total_secs\n";
 
 # print Dumper(\%info_of);

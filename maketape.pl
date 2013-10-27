@@ -90,11 +90,12 @@ EXAMPLES:
           ./$script_name -l 4200            make tape length 4200 seconds
           ./$script_name -m 10m -u 5m       max track length 10m, min track length 5m
           ./$script_name -t "drew's tape"   custom tape name
+
 };
 
 # getopts ########################################################################################
 
-getopts('b:d:hl:m:s:u:');
+getopts('b:d:hl:m:s:t:u:');
 
 # parse help
 if ($opt_h) {
@@ -108,6 +109,24 @@ if ($opt_d) {
     $mp3dir = $opt_d;
   } else {
     print "directory provided with -d option is not a valid target\n";
+    exit 1;
+  }
+}
+
+# parse end-buffer
+if ($opt_b) {
+  if ($opt_b =~ /^-?\d+$/) {
+    # we've been given an int; treat as seconds
+    $end_buffer = $opt_b;
+    print "user-specified end-buffer: $end_buffer seconds\n";
+  } elsif ($opt_b =~ /^[1-9][0-9]*[mM]$/) {
+    # we've been given a 'minutes' value; convert
+    $opt_b =~ s/[mM]//s;
+    $end_buffer = min2sec($opt_b);
+    print "user-specified end-buffer: $end_buffer seconds\n";
+  } else {
+    print "argument provided to option -l is not a valid length\n";
+    print "please provide in seconds (-l 4200) or minutes (-l 70m)\n";
     exit 1;
   }
 }
@@ -382,7 +401,6 @@ sub generate_side {
 
 # search for all mp3 files located in $mp3dir
 get_mp3s($mp3dir,\@mp3s);
-$total_mp3s = scalar(@mp3s);
 
 # generate a side, for as many sides as we have
 for ($current_side = 1; $current_side <= $sides; $current_side++) {

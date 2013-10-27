@@ -45,12 +45,12 @@ my $total_width    = $track_no_width + $artist_width + $song_width + $length_wid
 my $mp3dir               = '/mnt/sharefs/music/iTunes/Music';
 
 # the below values are in seconds. 
-my $current_side         = '1';
+my $current_side;
 my $sides                = '1';
 my $minimum_track_length = '90';    
 my $maximum_track_length = '420';   
 my $side_length          = '4200';  
-my $end_buffer           = '60';    # don't look for more songs if we only have X seconds left
+my $end_buffer           = '120';    # don't look for more songs if we only have X seconds left
 
 # command line options
 our $opt_b;     # end buffer ("buffer")
@@ -61,6 +61,7 @@ our $opt_m;     # maximum track length ("max")
 our $opt_s;     # sides to to create.  ("sides")
 our $opt_t;     # title of tape ("title")
 our $opt_u;     # minimum track length ("minim-u-m")
+our $opt_x;     # signify that mix is to be exported ("e-x-port")
 
 # usage ###########################################################################################
 
@@ -77,8 +78,12 @@ OPTIONS:  -b: end-buffer.  space you're happy to leave at the end of the tape.
           -m: maximum track size to use.   (default value: 420 seconds (7 min))
           -u: mimumum track size to use.   (default value: 90 seconds (1 min 30 sec))
           -s: number of sides for the tape (default value: 1)
-          -t: tape title
-          -h: print usage information and exists
+          -t: tape title.  will be displayed in tracklist and used with export function.
+          -x: export.  signifies that the mix should be exported to .zip format.
+                       argument to this function is the target path.
+          -r: rename.  signifies that the album id3 field should be overwritten w/ tape title.
+                       used in combination with -x only.  
+          -h: print usage information and exit.
 
           where it makes sense, you can provide times to these options in either 
           seconds or minutes.  4200 would be parsed as seconds.  4200m would be 
@@ -95,7 +100,7 @@ EXAMPLES:
 
 # getopts ########################################################################################
 
-getopts('b:d:hl:m:s:t:u:');
+getopts('b:d:hl:m:rs:t:u:x:');
 
 # parse help
 if ($opt_h) {

@@ -38,13 +38,13 @@ my $tape_title     = "$ENV{USER}'s mixtape";      # boring default title
 my $track_no_width = 5;
 my $artist_width   = 50;
 my $song_width     = 50;
-my $length_width   = 6;
+my $length_width   = 8;
 my $total_width    = $track_no_width + $artist_width + $song_width + $length_width;
 
-# basedir to search for mp3s in.  provide this as an option TODO
+# default basedir to search for mp3s in.
 my $mp3dir               = '/mnt/sharefs/music/iTunes/Music';
 
-# the below values are in seconds.  allow overwrite with opts TODO
+# the below values are in seconds. 
 my $current_side         = '1';
 my $sides                = '1';
 my $minimum_track_length = '90';    
@@ -393,8 +393,9 @@ sub generate_side {
   my $total_mins = int($total_length / 60);
   my $total_secs = sprintf("%02d",$total_length % 60);
 
-  print "TOTAL: $total_mins:$total_secs\n\n";
-
+  # print the side total length.  right justify the "TOTAL" in the third column to be fancy
+  printf("%-${track_no_width}s%-${artist_width}s%${song_width}s%-${length_width}s\n",
+  " "," ","TOTAL  ","($total_mins:$total_secs)");
 }
 
 # main ############################################################################################

@@ -130,8 +130,8 @@ if ($opt_b) {
     $end_buffer = min2sec($opt_b);
     print "user-specified end-buffer: $end_buffer seconds\n";
   } else {
-    print "argument provided to option -l is not a valid length\n";
-    print "please provide in seconds (-l 4200) or minutes (-l 70m)\n";
+    print "argument provided to option -b is not a valid length\n";
+    print "please provide in seconds (-b 4200) or minutes (-b 70m)\n";
     exit 1;
   }
 }
